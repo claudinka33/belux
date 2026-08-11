@@ -1,0 +1,31 @@
+@import "@fontsource/poppins/300.css";
+@import "@fontsource/poppins/400.css";
+@import "@fontsource/poppins/500.css";
+@import "@fontsource/poppins/600.css";
+@import "@fontsource/poppins/700.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  @apply bg-cream text-ink font-sans antialiased;
+}
+
+@layer components {
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-belux-500 px-6 py-3 text-sm font-semibold uppercase tracking-wide text-white shadow-soft transition hover:bg-belux-600 disabled:cursor-not-allowed disabled:opacity-40;
+  }
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-belux-200 bg-white px-6 py-3 text-sm font-semibold uppercase tracking-wide text-belux-700 transition hover:bg-belux-50 disabled:opacity-40;
+  }
+  .input {
+    @apply w-full rounded-xl border border-belux-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-belux-400 focus:ring-2 focus:ring-belux-100;
+  }
+  .label {
+    @apply mb-1.5 block text-sm font-medium text-ink;
+  }
+  .card {
+    @apply rounded-2xl bg-white p-5 shadow-card;
+  }
+}
