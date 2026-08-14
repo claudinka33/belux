@@ -1,12 +1,21 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
 import { db, tables } from "@/lib/db";
 import { getAllSettings } from "@/lib/settings";
 import { formatDuration, formatPrice } from "@/lib/time";
+import { studioJsonLd } from "@/lib/jsonld";
 import { asc, eq } from "drizzle-orm";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: "Studio Be.Lux — trepalnice, obrvi in ličenje | Dobje pri Planini",
+  description:
+    "Podaljševanje trepalnic (klasične 1:1, hybrid, volumenske), laminacija in urejanje obrvi ter profesionalno in poročno ličenje. Studio Be.Lux, Dobje pri Planini — rezerviraj termin na spletu.",
+  alternates: { canonical: "/" },
+};
 
 export default async function Home() {
   const s = await getAllSettings();
@@ -17,6 +26,8 @@ export default async function Home() {
     .where(eq(tables.services.active, true))
     .orderBy(asc(tables.services.order))
     .all();
+  const hours = await db.select().from(tables.workingHours).all();
+  const jsonLd = studioJsonLd({ settings: s, services: svcs, categories: cats, hours });
 
   const topCats = cats.filter((c) => !c.parentId);
   const servicesOf = (catId: string) => {
@@ -26,6 +37,11 @@ export default async function Home() {
 
   return (
     <>
+      {/* Strukturirani podatki za Google (BeautySalon + cenik + delovni čas) */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <SiteHeader />
       {/* HERO */}
       <section className="relative overflow-hidden bg-gradient-to-br from-belux-100 via-cream to-belux-50">

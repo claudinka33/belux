@@ -40,6 +40,10 @@ export default function SiteFooter({ s }: { s: Record<string, string> }) {
       </div>
       <div className="border-t border-belux-800 py-4 text-center text-xs text-belux-300">
         © {new Date().getFullYear()} {s.studioName}. Vse pravice pridržane.
+        <span className="mx-2 text-belux-700">·</span>
+        <a href="/admin" rel="nofollow" className="text-belux-400 transition hover:text-belux-200">
+          Za osebje
+        </a>
       </div>
     </footer>
   );
