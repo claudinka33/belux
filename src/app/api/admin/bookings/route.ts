@@ -2,10 +2,10 @@ import { NextResponse } from "next/server";
 import { db, tables } from "@/lib/db";
 import { and, asc, desc, eq, gte, lte } from "drizzle-orm";
 import { requireAdmin } from "@/lib/admin";
-import { isSlotFree } from "@/lib/availability";
+import { isSlotFree, checkAdminSlot } from "@/lib/availability";
 import { createCalendarEvent, deleteCalendarEvent } from "@/lib/google";
 import { upsertClient } from "@/lib/clients";
-import { sendCancellationEmail } from "@/lib/email";
+import { sendCancellationEmail, sendRescheduleEmail } from "@/lib/email";
 
 export const dynamic = "force-dynamic";
 
@@ -111,6 +111,58 @@ export async function PUT(req: Request) {
   if (typeof b.paid === "boolean") patch.paid = b.paid;
   if (typeof b.paymentMethod === "string") patch.paymentMethod = b.paymentMethod;
   if (typeof b.note === "string") patch.note = b.note;
+
+  /* --- Prestavljanje termina (drug dan, druga ura, druga storitev) --- */
+  const wantsMove =
+    (typeof b.date === "string" && b.date !== existing.date) ||
+    (typeof b.startMin === "number" && b.startMin !== existing.startMin) ||
+    (typeof b.serviceId === "string" && b.serviceId !== existing.serviceId);
+
+  if (wantsMove) {
+    const svcId = b.serviceId || existing.serviceId;
+    const svc = await db.select().from(tables.services).where(eq(tables.services.id, svcId)).get();
+    if (!svc) return NextResponse.json({ error: "Storitev ne obstaja." }, { status: 400 });
+
+    const newDate = b.date ?? existing.date;
+    const newStart = b.startMin ?? existing.startMin;
+    const newEnd = newStart + svc.durationMin;
+
+    if (!b.force) {
+      const check = await checkAdminSlot(newDate, newStart, svc.durationMin, existing.id);
+      if (!check.ok) {
+        return NextResponse.json({ error: check.reason, canForce: true }, { status: 409 });
+      }
+    }
+
+    patch.date = newDate;
+    patch.startMin = newStart;
+    patch.endMin = newEnd;
+    patch.serviceId = svcId;
+    patch.reminderSentAt = null; // opomnik naj se pošlje znova za novi datum
+
+    // Google Koledar: star dogodek stran, nov na njegovo mesto
+    if (existing.gcalEventId) await deleteCalendarEvent(existing.gcalEventId);
+    const newEventId = await createCalendarEvent({
+      date: newDate, startMin: newStart, endMin: newEnd,
+      serviceName: svc.name, firstName: existing.firstName, lastName: existing.lastName,
+      email: existing.email, phone: existing.phone, note: existing.note,
+    });
+    patch.gcalEventId = newEventId;
+
+    if (existing.email && b.notify !== false) {
+      await sendRescheduleEmail({
+        firstName: existing.firstName,
+        email: existing.email,
+        serviceName: svc.name,
+        oldDate: existing.date,
+        oldStartMin: existing.startMin,
+        newDate,
+        newStartMin: newStart,
+        cancelToken: existing.cancelToken,
+      });
+    }
+  }
+
   if (!Object.keys(patch).length) return NextResponse.json({ booking: existing });
 
   const row = await db

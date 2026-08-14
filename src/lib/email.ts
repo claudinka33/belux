@@ -212,3 +212,36 @@ export async function notifyAdminNewBooking(b: {
   );
   return send(s.adminEmail, `Nova rezervacija: ${b.firstName} ${b.lastName}, ${formatDateSl(b.date, false)}`, html);
 }
+
+/** Obvestilo stranki, da je termin prestavljen. */
+export async function sendRescheduleEmail(b: {
+  firstName: string; email: string; serviceName: string;
+  oldDate: string; oldStartMin: number;
+  newDate: string; newStartMin: number;
+  cancelToken: string;
+}) {
+  const s = await getAllSettings();
+  const html = shell(
+    s.studioName,
+    `<p>Pozdravljeni, ${b.firstName}!</p>
+     <p>Vaš termin za <strong>${b.serviceName}</strong> je bil prestavljen.</p>
+     <table style="width:100%;border-collapse:collapse;margin:16px 0">
+       <tr><td style="padding:8px 0;color:#9b9b9b">Prej</td>
+           <td style="text-align:right;color:#9b9b9b;text-decoration:line-through">${formatDateSl(b.oldDate)} ob ${minToHHMM(b.oldStartMin)}</td></tr>
+       <tr><td style="padding:8px 0;color:#9b9b9b">Novi termin</td>
+           <td style="text-align:right"><strong style="color:#cf6d90;font-size:16px">${formatDateSl(b.newDate)} ob ${minToHHMM(b.newStartMin)}</strong></td></tr>
+       <tr><td style="padding:8px 0;color:#9b9b9b">Kje</td><td style="text-align:right">${s.address}</td></tr>
+     </table>
+     <p style="text-align:center;margin:24px 0">
+       <a href="${gcalLink({
+         id: "", date: b.newDate, startMin: b.newStartMin, endMin: b.newStartMin + 60,
+         firstName: b.firstName, email: b.email, cancelToken: b.cancelToken,
+         serviceName: b.serviceName, price: 0,
+       }, s.studioName, s.address)}" style="background:#cf6d90;color:#fff;text-decoration:none;padding:12px 22px;border-radius:8px;display:inline-block">📅 Dodaj novi termin v koledar</a>
+     </p>
+     <p style="font-size:13px;color:#9b9b9b">Če vam novi termin ne ustreza, ga lahko
+       <a href="${SITE_URL}/preklic/${b.cancelToken}" style="color:#cf6d90">prekličete tukaj</a>
+       ali pokličete na ${s.phone} — dogovorili se bomo za drugega.</p>`
+  );
+  return send(b.email, `Prestavljen termin — ${formatDateSl(b.newDate, false)} ob ${minToHHMM(b.newStartMin)}`, html);
+}

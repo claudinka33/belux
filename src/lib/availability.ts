@@ -117,3 +117,53 @@ export async function getMonthAvailability(
   }
   return out;
 }
+
+/**
+ * Preverba termina za Anito (dashboard).
+ * Drugačna od javne: ne omejuje z razmikom med termini, najavnim rokom
+ * ali koliko dni vnaprej — lastnica sme postaviti termin kamorkoli.
+ * Preverja samo tisto, kar bi res naredilo škodo: prekrivanje in delovni čas.
+ * `excludeBookingId` izpusti termin, ki ga prestavljamo, da sam sebi ne nagaja.
+ */
+export async function checkAdminSlot(
+  date: string,
+  startMin: number,
+  durationMin: number,
+  excludeBookingId?: string
+): Promise<{ ok: boolean; reason?: string }> {
+  const endMin = startMin + durationMin;
+  const s = await getAllSettings();
+  const buffer = parseInt(s.bufferMin) || 0;
+
+  const rows = await db
+    .select()
+    .from(tables.bookings)
+    .where(and(eq(tables.bookings.date, date), eq(tables.bookings.status, "POTRJENO")))
+    .all();
+
+  for (const b of rows) {
+    if (excludeBookingId && b.id === excludeBookingId) continue;
+    if (overlaps(startMin, endMin + buffer, [b.startMin, b.endMin + buffer])) {
+      return {
+        ok: false,
+        reason: `Prekriva se s terminom ${b.firstName} ${b.lastName} ob ${String(Math.floor(b.startMin / 60)).padStart(2, "0")}:${String(b.startMin % 60).padStart(2, "0")}.`,
+      };
+    }
+  }
+
+  for (const g of await getBusyIntervals(date)) {
+    if (overlaps(startMin, endMin, g)) {
+      return { ok: false, reason: "Prekriva se z dogodkom v tvojem Google Koledarju." };
+    }
+  }
+
+  const work = await getDayIntervals(date);
+  if (work.length === 0) {
+    return { ok: false, reason: "Ta dan po urniku ne delaš." };
+  }
+  if (!work.some(([ws, we]) => startMin >= ws && endMin <= we)) {
+    return { ok: false, reason: "Termin je izven delovnega časa za ta dan." };
+  }
+
+  return { ok: true };
+}
