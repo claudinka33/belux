@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import Image from "next/image";
 import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
 import { db, tables } from "@/lib/db";
@@ -58,16 +59,16 @@ export default async function Home() {
             </div>
             <p className="mt-6 text-sm text-ink/50">📍 {s.address} · 📞 {s.phone}</p>
           </div>
-          <div className="relative mx-auto hidden h-80 w-80 md:block">
+          <div className="relative mx-auto h-72 w-60 md:h-96 md:w-80">
             <div className="absolute inset-0 rounded-[3rem] bg-white/70 shadow-soft backdrop-blur" />
-            <svg viewBox="0 0 200 200" className="relative h-full w-full p-10" fill="none">
-              <path d="M128 22c-34 4-58 34-58 70 0 30 12 50 12 72" stroke="#2f2a2d" strokeWidth="2.4" strokeLinecap="round" />
-              <path d="M76 92c11-7 28-7 39 0" stroke="#2f2a2d" strokeWidth="2.4" strokeLinecap="round" />
-              <path d="M83 111l-7 8M96 114l-4 10M109 112l3 10" stroke="#2f2a2d" strokeWidth="2" strokeLinecap="round" />
-              <path d="M113 143c-7 5-17 5-24 0M110 158c-5 4-13 4-17 0" stroke="#2f2a2d" strokeWidth="2" strokeLinecap="round" />
-              <path d="M60 56c12-21 38-33 62-28" stroke="#cf6d90" strokeWidth="2.4" strokeLinecap="round" />
-              <text x="52" y="46" fontSize="15" fontFamily="Poppins" fill="#2f2a2d" transform="rotate(-35 52 46)">Be.Lux</text>
-            </svg>
+            <Image
+              src="/belux-logo.png"
+              alt="Logotip studia Be.Lux"
+              width={769}
+              height={1100}
+              priority
+              className="relative h-full w-full object-contain p-8"
+            />
           </div>
         </div>
       </section>
