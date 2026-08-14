@@ -53,6 +53,28 @@ export default function Nastavitve() {
       </section>
 
       <section className="card mt-6">
+        <h2 className="font-semibold text-belux-700">Obveščanje po e-pošti</h2>
+        <p className="mt-1 text-xs text-ink/50">
+          Opomniki, zahvale in vabila se pošljejo samodejno enkrat dnevno.
+        </p>
+        <div className="mt-4">
+          <label className="label">Moj e-naslov za obvestila</label>
+          <input className="input" placeholder="anita@belux.si" value={s.adminEmail ?? ""} onChange={set("adminEmail")} />
+        </div>
+        <div className="mt-4 space-y-1">
+          <Toggle s={s} setS={setS} k="emailAdminNotify" label="Obvesti me ob vsaki novi rezervaciji" />
+          <Toggle s={s} setS={setS} k="emailReminder" label="Opomnik stranki dan pred terminom" />
+          <Toggle s={s} setS={setS} k="emailThanks" label="Zahvala stranki po opravljeni storitvi" />
+          <Toggle s={s} setS={setS} k="emailFollowUp" label="Vabilo na korekcijo, če se stranka dolgo ni naročila" />
+        </div>
+        <div className="mt-4 max-w-xs">
+          <label className="label">Vabilo na korekcijo po (tednih)</label>
+          <input type="number" min={1} max={12} className="input" value={s.followUpWeeks ?? "3"} onChange={set("followUpWeeks")} />
+          <p className="mt-1 text-xs text-ink/50">Pošlje se samo strankam, ki še nimajo naslednjega termina.</p>
+        </div>
+      </section>
+
+      <section className="card mt-6">
         <h2 className="font-semibold text-belux-700">Besedila na strani</h2>
         <div className="mt-4 space-y-4">
           <div><label className="label">Naslov (hero)</label><input className="input" value={s.heroTitle} onChange={set("heroTitle")} /></div>
@@ -124,5 +146,32 @@ export default function Nastavitve() {
         <button className="btn-primary shadow-lg" onClick={save}>Shrani nastavitve</button>
       </div>
     </div>
+  );
+}
+
+function Toggle({
+  s, setS, k, label,
+}: {
+  s: Record<string, string>;
+  setS: (v: Record<string, string>) => void;
+  k: string;
+  label: string;
+}) {
+  const on = (s[k] ?? "1") !== "0";
+  return (
+    <label className="flex cursor-pointer items-center gap-3 rounded-xl px-1 py-2 text-sm hover:bg-belux-50/60">
+      <button
+        type="button"
+        role="switch"
+        aria-checked={on}
+        onClick={() => setS({ ...s, [k]: on ? "0" : "1" })}
+        className={`relative h-6 w-11 shrink-0 rounded-full transition ${on ? "bg-belux-500" : "bg-belux-200"}`}
+      >
+        <span
+          className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${on ? "left-[22px]" : "left-0.5"}`}
+        />
+      </button>
+      <span>{label}</span>
+    </label>
   );
 }

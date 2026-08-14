@@ -4,6 +4,8 @@ import { and, asc, desc, eq, gte, lte } from "drizzle-orm";
 import { requireAdmin } from "@/lib/admin";
 import { isSlotFree } from "@/lib/availability";
 import { createCalendarEvent, deleteCalendarEvent } from "@/lib/google";
+import { upsertClient } from "@/lib/clients";
+import { sendCancellationEmail } from "@/lib/email";
 
 export const dynamic = "force-dynamic";
 
@@ -29,7 +31,11 @@ export async function GET(req: Request) {
       phone: tables.bookings.phone,
       note: tables.bookings.note,
       createdAt: tables.bookings.createdAt,
+      clientId: tables.bookings.clientId,
+      paid: tables.bookings.paid,
+      paymentMethod: tables.bookings.paymentMethod,
       serviceName: tables.services.name,
+      durationMin: tables.services.durationMin,
       price: tables.services.price,
     })
     .from(tables.bookings)
@@ -59,6 +65,12 @@ export async function POST(req: Request) {
     }
   }
   const endMin = b.startMin + svc.durationMin;
+  const clientId = await upsertClient({
+    firstName: b.firstName || "",
+    lastName: b.lastName || "",
+    email: b.email || "",
+    phone: b.phone || "",
+  });
   const row = await db
     .insert(tables.bookings)
     .values({
@@ -71,6 +83,7 @@ export async function POST(req: Request) {
       email: b.email || "",
       phone: b.phone || "",
       note: b.note || "",
+      clientId,
     })
     .returning()
     .get();
@@ -83,7 +96,7 @@ export async function POST(req: Request) {
   return NextResponse.json({ booking: row });
 }
 
-// Preklic / sprememba statusa
+// Preklic, sprememba statusa, označitev plačila, opomba
 export async function PUT(req: Request) {
   const guard = await requireAdmin();
   if (!guard.ok) return guard.res;
@@ -93,11 +106,30 @@ export async function PUT(req: Request) {
   if (b.status === "PREKLICANO" && existing.gcalEventId) {
     await deleteCalendarEvent(existing.gcalEventId);
   }
+  const patch: Record<string, unknown> = {};
+  if (typeof b.status === "string") patch.status = b.status;
+  if (typeof b.paid === "boolean") patch.paid = b.paid;
+  if (typeof b.paymentMethod === "string") patch.paymentMethod = b.paymentMethod;
+  if (typeof b.note === "string") patch.note = b.note;
+  if (!Object.keys(patch).length) return NextResponse.json({ booking: existing });
+
   const row = await db
     .update(tables.bookings)
-    .set({ status: b.status })
+    .set(patch)
     .where(eq(tables.bookings.id, b.id))
     .returning()
     .get();
+
+  // preklic s strani Anite — obvestimo stranko
+  if (b.status === "PREKLICANO" && existing.status !== "PREKLICANO" && row.email) {
+    const svc = await db.select().from(tables.services).where(eq(tables.services.id, row.serviceId)).get();
+    await sendCancellationEmail({
+      date: row.date,
+      startMin: row.startMin,
+      firstName: row.firstName,
+      email: row.email,
+      serviceName: svc?.name ?? "termin",
+    });
+  }
   return NextResponse.json({ booking: row });
 }

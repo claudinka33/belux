@@ -8,8 +8,11 @@ import { useState } from "react";
 
 const NAV = [
   { href: "/admin", label: "Pregled", icon: "🏠" },
+  { href: "/admin/koledar", label: "Koledar", icon: "📅" },
   { href: "/admin/rezervacije", label: "Rezervacije", icon: "📋" },
+  { href: "/admin/stranke", label: "Stranke", icon: "👥" },
   { href: "/admin/storitve", label: "Storitve in cenik", icon: "💅" },
+  { href: "/admin/porocila", label: "Poročila", icon: "📈" },
   { href: "/admin/urnik", label: "Delovni čas", icon: "🕐" },
   { href: "/admin/nastavitve", label: "Nastavitve", icon: "⚙️" },
 ];

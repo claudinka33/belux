@@ -19,6 +19,14 @@ export const DEFAULT_SETTINGS: Record<string, string> = {
   gcalRefreshToken: "",
   gcalCalendarId: "primary",
   gcalTwoWay: "1",
+
+  // Obveščanje po e-pošti (Resend)
+  adminEmail: "", // kam Anita prejema obvestila o novih rezervacijah
+  emailAdminNotify: "1", // obvestilo Aniti ob vsaki novi rezervaciji
+  emailReminder: "1", // opomnik stranki dan pred terminom
+  emailThanks: "1", // zahvala po opravljeni storitvi
+  emailFollowUp: "1", // vabilo na korekcijo
+  followUpWeeks: "3", // po koliko tednih poslati vabilo na korekcijo
 };
 
 export async function getSetting(key: string): Promise<string> {

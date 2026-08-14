@@ -47,6 +47,26 @@ export const bookings = sqliteTable("bookings", {
   gcalEventId: text("gcal_event_id"),
   serviceId: text("service_id").notNull(),
   userId: text("user_id"),
+  clientId: text("client_id"),
+  paid: integer("paid", { mode: "boolean" }).notNull().default(false),
+  paymentMethod: text("payment_method").notNull().default("Gotovina"),
+  reminderSentAt: text("reminder_sent_at"),
+  followupSentAt: text("followup_sent_at"),
+  createdAt: text("created_at").notNull().default(sql`(datetime('now'))`),
+});
+
+/**
+ * Kartoteka strank. Ključ je normaliziran e-mail (ali telefon, če e-maila ni),
+ * da se ista oseba ob ponovnem naročanju ne podvoji.
+ */
+export const clients = sqliteTable("clients", {
+  id: text("id").primaryKey().$defaultFn(createId),
+  key: text("key").notNull().unique(),
+  firstName: text("first_name").notNull().default(""),
+  lastName: text("last_name").notNull().default(""),
+  email: text("email").notNull().default(""),
+  phone: text("phone").notNull().default(""),
+  note: text("note").notNull().default(""), // zasebna beležka (alergije, tip trepalnic …)
   createdAt: text("created_at").notNull().default(sql`(datetime('now'))`),
 });
 

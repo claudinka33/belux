@@ -5,8 +5,9 @@ import { db, tables } from "@/lib/db";
 import { and, desc, eq } from "drizzle-orm";
 import { isSlotFree } from "@/lib/availability";
 import { createCalendarEvent } from "@/lib/google";
-import { sendBookingEmail, gcalLink } from "@/lib/email";
+import { sendBookingEmail, gcalLink, notifyAdminNewBooking } from "@/lib/email";
 import { getAllSettings } from "@/lib/settings";
+import { upsertClient } from "@/lib/clients";
 
 export const dynamic = "force-dynamic";
 
@@ -55,6 +56,14 @@ export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
   const userId = (session as any)?.userId ?? null;
 
+  // Kartoteka strank — poišče obstoječo ali ustvari novo
+  const clientId = await upsertClient({
+    firstName: String(firstName).trim(),
+    lastName: String(lastName).trim(),
+    email: String(email).toLowerCase().trim(),
+    phone: phone || "",
+  });
+
   const endMin = startMin + svc.durationMin;
   const inserted = await db
     .insert(tables.bookings)
@@ -69,6 +78,7 @@ export async function POST(req: Request) {
       phone: phone || "",
       note: note || "",
       userId,
+      clientId,
     })
     .returning()
     .get();
@@ -98,6 +108,15 @@ export async function POST(req: Request) {
     price: svc.price,
   };
   await sendBookingEmail(info, baseUrl);
+  await notifyAdminNewBooking({
+    date, startMin,
+    firstName: inserted.firstName,
+    lastName: inserted.lastName,
+    phone: inserted.phone,
+    email: inserted.email,
+    serviceName: svc.name,
+    price: svc.price,
+  });
 
   const s = await getAllSettings();
   return NextResponse.json({

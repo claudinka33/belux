@@ -31,8 +31,26 @@ export const DDL = `
     start_min INTEGER, end_min INTEGER, note TEXT NOT NULL DEFAULT ''
   );
   CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+  CREATE TABLE IF NOT EXISTS clients (
+    id TEXT PRIMARY KEY, key TEXT NOT NULL UNIQUE, first_name TEXT NOT NULL DEFAULT '',
+    last_name TEXT NOT NULL DEFAULT '', email TEXT NOT NULL DEFAULT '', phone TEXT NOT NULL DEFAULT '',
+    note TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
   CREATE INDEX IF NOT EXISTS idx_bookings_date ON bookings(date);
 `;
+
+/**
+ * Stolpci, dodani po prvi objavi. CREATE TABLE IF NOT EXISTS jih na obstoječi
+ * bazi ne doda, zato jih izvedemo posebej — napaka "duplicate column" se ignorira.
+ */
+export const ALTERS = [
+  `ALTER TABLE bookings ADD COLUMN client_id TEXT`,
+  `ALTER TABLE bookings ADD COLUMN paid INTEGER NOT NULL DEFAULT 0`,
+  `ALTER TABLE bookings ADD COLUMN payment_method TEXT NOT NULL DEFAULT 'Gotovina'`,
+  `ALTER TABLE bookings ADD COLUMN reminder_sent_at TEXT`,
+  `ALTER TABLE bookings ADD COLUMN followup_sent_at TEXT`,
+  `CREATE INDEX IF NOT EXISTS idx_bookings_client ON bookings(client_id)`,
+];
 
 import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 type Db = BetterSQLite3Database<typeof schema>;
@@ -59,6 +77,9 @@ function createLocalDb() {
     sqlite.pragma("journal_mode = WAL");
   } catch { /* ignore */ }
   sqlite.exec(DDL);
+  for (const stmt of ALTERS) {
+    try { sqlite.exec(stmt); } catch { /* stolpec že obstaja */ }
+  }
   return drizzle(sqlite, { schema });
 }
 
@@ -74,6 +95,9 @@ function createTursoDb() {
   globalForDb.__beluxReady = client
     .executeMultiple(DDL)
     .then(async () => {
+      for (const stmt of ALTERS) {
+        try { await client.execute(stmt); } catch { /* stolpec že obstaja */ }
+      }
       const { seedIfEmpty } = await import("./seed");
       await seedIfEmpty(drizzle(client, { schema }));
     })
