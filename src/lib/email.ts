@@ -14,6 +14,19 @@ type BookingInfo = {
   price: number;
 };
 
+/**
+ * Naslov, na katerega pade odgovor stranke.
+ *
+ * Pošiljatelj (from) je info@belux.si, ker mora biti na potrjeni domeni,
+ * odgovore pa Anita bere v Gmailu. Vrednost pride iz EMAIL_REPLY_TO,
+ * sicer se uporabi adminEmail iz nastavitev. Če ni ne enega ne drugega,
+ * se polje izpusti in odgovor gre na from.
+ */
+function replyTo(s: Record<string, string>): { reply_to?: string } {
+  const addr = process.env.EMAIL_REPLY_TO || s.adminEmail || "";
+  return addr ? { reply_to: addr } : {};
+}
+
 export function gcalLink(b: BookingInfo, studioName: string, address: string): string {
   const params = new URLSearchParams({
     action: "TEMPLATE",
@@ -59,6 +72,7 @@ export async function sendBookingEmail(b: BookingInfo, baseUrl: string) {
       body: JSON.stringify({
         from: process.env.EMAIL_FROM || `${s.studioName} <onboarding@resend.dev>`,
         to: b.email,
+        ...replyTo(s),
         subject: `Potrditev termina — ${b.serviceName}, ${formatDateSl(b.date, false)} ob ${minToHHMM(b.startMin)}`,
         html,
       }),
@@ -95,6 +109,7 @@ async function send(to: string, subject: string, html: string) {
       body: JSON.stringify({
         from: process.env.EMAIL_FROM || `${s.studioName} <onboarding@resend.dev>`,
         to,
+        ...replyTo(s),
         subject,
         html,
       }),
