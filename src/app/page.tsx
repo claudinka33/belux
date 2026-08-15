@@ -142,10 +142,38 @@ export default async function Home() {
           <div className="order-2 md:order-1">
             <h2 className="text-3xl font-semibold">O meni</h2>
             <p className="mt-4 leading-8 text-ink/70">{s.aboutText}</p>
+
+            <p className="mt-6 text-sm font-medium uppercase tracking-wider text-ink/40">
+              Zaključena strokovna izobraževanja
+            </p>
+            <ul className="mt-3 flex flex-wrap gap-2">
+              {[
+                "Podaljševanje trepalnic",
+                "Russian Volume",
+                "Laminacija obrvi",
+                "Profesionalno ličenje",
+              ].map((c) => (
+                <li
+                  key={c}
+                  className="rounded-full border border-belux-200 bg-white px-3 py-1.5 text-sm text-belux-700"
+                >
+                  {c}
+                </li>
+              ))}
+            </ul>
+
             <p className="mt-6 font-medium text-belux-700">Anita · Studio Be.Lux</p>
           </div>
-          <div className="order-1 mx-auto flex h-64 w-64 items-center justify-center rounded-full bg-gradient-to-br from-belux-200 to-belux-400 text-7xl shadow-soft md:order-2">
-            🌸
+          <div className="order-1 md:order-2">
+            <Image
+              src="/anita.jpg"
+              alt="Anita, ustanoviteljica studia Be.Lux, s certifikati za podaljševanje trepalnic, laminacijo obrvi in profesionalno ličenje"
+              width={880}
+              height={1100}
+              sizes="(max-width: 768px) 100vw, 420px"
+              className="mx-auto w-full max-w-sm rounded-2xl object-cover shadow-card"
+              priority={false}
+            />
           </div>
         </div>
       </section>
