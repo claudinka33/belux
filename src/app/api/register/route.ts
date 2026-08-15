@@ -13,17 +13,25 @@ export async function POST(req: Request) {
   }
   const mail = String(email).toLowerCase().trim();
   const existing = await db.select().from(tables.users).where(eq(tables.users.email, mail)).get();
-  if (existing?.passwordHash) {
-    return NextResponse.json({ error: "Uporabnik s tem e-mailom že obstaja. Prijavite se." }, { status: 409 });
-  }
-  const passwordHash = bcrypt.hashSync(password, 10);
+
+  /**
+   * Vsak obstoječ e-naslov se zavrne, tudi če uporabnik gesla še nima.
+   *
+   * Prej se je zavrnil samo tisti z geslom. Kdor se je prijavil z Google računom,
+   * gesla nima — zato si je lahko kdorkoli, ki je poznal njegov e-naslov, prek
+   * tega obrazca nastavil geslo in prevzel njegov račun.
+   */
   if (existing) {
-    await db
-      .update(tables.users)
-      .set({ passwordHash, firstName, lastName, phone: phone || "" })
-      .where(eq(tables.users.id, existing.id));
-  } else {
-    await db.insert(tables.users).values({ email: mail, firstName, lastName, phone: phone || "", passwordHash });
+    return NextResponse.json(
+      {
+        error:
+          "Uporabnik s tem e-mailom že obstaja. Prijavite se — če ste se registrirali z Google računom, uporabite gumb za prijavo z Googlom.",
+      },
+      { status: 409 }
+    );
   }
+
+  const passwordHash = bcrypt.hashSync(password, 10);
+  await db.insert(tables.users).values({ email: mail, firstName, lastName, phone: phone || "", passwordHash });
   return NextResponse.json({ ok: true });
 }
