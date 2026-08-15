@@ -1,7 +1,7 @@
 import { db, tables } from "./db";
 import { and, eq } from "drizzle-orm";
 import { getAllSettings } from "./settings";
-import { getBusyIntervals } from "./google";
+import { getBusyIntervals, getBusyByDate } from "./google";
 import { nowInLjubljana, weekdayOf, addDays } from "./time";
 
 type Interval = [number, number];
@@ -89,27 +89,47 @@ export async function getMonthAvailability(
   const out: Record<string, boolean> = {};
   const now = nowInLjubljana();
   const s = await getAllSettings();
+  const buffer = parseInt(s.bufferMin) || 0;
+  const step = parseInt(s.slotStepMin) || 30;
   const maxDate = addDays(now.date, parseInt(s.maxDaysAhead) || 60);
+
+  /**
+   * Dnevi, ki jih je sploh vredno računati. Za te potem z eno poizvedbo
+   * pridobimo zasedenost iz Google Koledarja.
+   *
+   * Prej mesečni pogled Googla ni upošteval, prav tako ne odmora med termini,
+   * dnevni seznam ur pa oboje — zato je znal biti dan v koledarju zelen, ob
+   * kliku pa je pisalo, da prostih terminov ni.
+   */
+  const candidates: string[] = [];
   for (let d = 1; d <= daysInMonth; d++) {
     const date = `${year}-${String(month).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
     if (date < now.date || date > maxDate) {
       out[date] = false;
       continue;
     }
-    // hitro: brez Google poizvedb za cel mesec — samo delovni čas + rezervacije
+    candidates.push(date);
+  }
+
+  const busyByDate = await getBusyByDate(candidates);
+
+  for (const date of candidates) {
     const workIntervals = await getDayIntervals(date);
     if (workIntervals.length === 0) {
       out[date] = false;
       continue;
     }
-    const busy = await getBookedIntervals(date, parseInt(s.bufferMin) || 0);
-    const step = parseInt(s.slotStepMin) || 30;
+    const busy: Interval[] = [
+      ...(await getBookedIntervals(date, buffer)),
+      ...(busyByDate[date] ?? []),
+    ];
     const earliest = date === now.date ? now.minutes + (parseFloat(s.minNoticeHours) || 0) * 60 : 0;
     let free = false;
     for (const [ws, we] of workIntervals) {
       for (let t = ws; t + durationMin <= we && !free; t += step) {
         if (t < earliest) continue;
-        if (!busy.some((b) => overlaps(t, t + durationMin, b))) free = true;
+        // enak izračun kot v getFreeSlots, vključno z odmorom
+        if (!busy.some((b) => overlaps(t, t + durationMin + buffer, b))) free = true;
       }
       if (free) break;
     }
