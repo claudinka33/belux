@@ -24,43 +24,42 @@ export async function ensureAdmins(db: any) {
   const spec = (process.env.ADMIN_SEED || "").trim();
   if (!spec) return;
 
-  const wanted = new Map<string, string>();
+  const wanted: { email: string; password: string }[] = [];
   for (const part of spec.split(",")) {
     const sep = part.indexOf(":");
     if (sep < 1) continue;
     const email = part.slice(0, sep).trim().toLowerCase();
     const password = part.slice(sep + 1).trim();
-    if (email && password) wanted.set(email, password);
+    if (email && password) wanted.push({ email, password });
   }
-  if (wanted.size === 0) return;
+  if (wanted.length === 0) return;
 
-  const users = await db.select().from(t.users).all();
-  const byEmail = new Map<string, any>(
-    users.map((u: any) => [String(u.email).toLowerCase(), u])
-  );
+  const users: any[] = await db.select().from(t.users).all();
+  const mailOf = (u: any) => String(u.email || "").toLowerCase();
 
-  for (const [email, password] of wanted) {
-    const user = byEmail.get(email);
+  for (const want of wanted) {
+    const user = users.find((u) => mailOf(u) === want.email);
     if (!user) {
       await db.insert(t.users).values({
-        email,
+        email: want.email,
         firstName: "",
         lastName: "",
-        passwordHash: bcrypt.hashSync(password, 10),
+        passwordHash: bcrypt.hashSync(want.password, 10),
         role: "ADMIN",
       });
       continue;
     }
     const patch: Record<string, string> = {};
     if (user.role !== "ADMIN") patch.role = "ADMIN";
-    if (!user.passwordHash) patch.passwordHash = bcrypt.hashSync(password, 10);
+    if (!user.passwordHash) patch.passwordHash = bcrypt.hashSync(want.password, 10);
     if (Object.keys(patch).length > 0) {
       await db.update(t.users).set(patch).where(eq(t.users.id, user.id));
     }
   }
 
-  for (const user of users as any[]) {
-    if (user.role === "ADMIN" && !wanted.has(String(user.email).toLowerCase())) {
+  for (const user of users) {
+    const listed = wanted.some((w) => w.email === mailOf(user));
+    if (user.role === "ADMIN" && !listed) {
       await db.update(t.users).set({ role: "CLIENT" }).where(eq(t.users.id, user.id));
     }
   }
