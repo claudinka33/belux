@@ -25,6 +25,10 @@ export async function PUT(req: Request) {
     "studioName", "address", "phone", "email", "instagram", "facebook",
     "cancelHours", "slotStepMin", "minNoticeHours", "maxDaysAhead", "bufferMin",
     "heroTitle", "heroSubtitle", "aboutText", "gcalCalendarId", "gcalTwoWay",
+    // Obveščanje po e-pošti. Brez teh se obrazec v nastavitvah da urejati,
+    // shranjevanje pa jih tiho zavrže in vrednosti se vrnejo na privzete.
+    "adminEmail", "emailAdminNotify", "emailReminder", "emailThanks",
+    "emailFollowUp", "followUpWeeks",
   ];
   for (const k of allowed) {
     if (k in body) await setSetting(k, String(body[k]));
