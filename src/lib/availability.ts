@@ -36,6 +36,15 @@ export async function getBookedIntervals(date: string, bufferMin = 0): Promise<I
   return rows.map((b) => [b.startMin, b.endMin + bufferMin] as Interval);
 }
 
+/** Nastavitve koledarja iz že prebranih nastavitev — prihrani tri poizvedbe. */
+function gcal(s: Record<string, string>) {
+  return {
+    twoWay: s.gcalTwoWay,
+    calendarId: s.gcalCalendarId,
+    refreshToken: s.gcalRefreshToken,
+  };
+}
+
 function overlaps(aStart: number, aEnd: number, b: Interval): boolean {
   return aStart < b[1] && aEnd > b[0];
 }
@@ -57,7 +66,7 @@ export async function getFreeSlots(date: string, durationMin: number): Promise<n
 
   const busy: Interval[] = [
     ...(await getBookedIntervals(date, buffer)),
-    ...(await getBusyIntervals(date)),
+    ...(await getBusyIntervals(date, gcal(s))),
   ];
 
   const earliestToday = date === now.date ? now.minutes + minNotice * 60 : 0;
@@ -142,7 +151,7 @@ export async function getMonthAvailability(
         )
       )
       .all(),
-    getBusyByDate(candidates),
+    getBusyByDate(candidates, gcal(s)),
   ]);
 
   const dayIntervalsOf = (date: string): Interval[] => {
@@ -219,7 +228,7 @@ export async function checkAdminSlot(
     }
   }
 
-  for (const g of await getBusyIntervals(date)) {
+  for (const g of await getBusyIntervals(date, gcal(s))) {
     if (overlaps(startMin, endMin, g)) {
       return { ok: false, reason: "Prekriva se z dogodkom v tvojem Google Koledarju." };
     }
