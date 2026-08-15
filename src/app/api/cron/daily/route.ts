@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db, tables } from "@/lib/db";
 import { and, eq, isNull, lte } from "drizzle-orm";
 import { nowInLjubljana, addDays } from "@/lib/time";
-import { getAllSettings } from "@/lib/settings";
+import { getAllSettings, setSetting } from "@/lib/settings";
 import { sendReminderEmail, sendThankYouEmail, sendFollowUpEmail } from "@/lib/email";
 import { listClients, daysBetween } from "@/lib/clients";
 
@@ -93,7 +93,21 @@ export async function GET(req: Request) {
   }
 
   /* --- 3. Vabila na korekcijo --- */
-  if (s.emailFollowUp !== "0") {
+  /**
+   * Ta korak se sme opraviti največ enkrat na dan.
+   *
+   * Opomnik in zahvala si v bazo zapišeta, da sta bila poslana, in se ob
+   * ponovnem zagonu preskočita. Vabilo take oznake ni imelo — pogoj je bil
+   * samo, da je od zadnjega obiska minilo točno toliko tednov. Če se je
+   * avtomatika isti dan sprožila dvakrat (Vercel po napaki poskusi znova),
+   * je stranka isto vabilo dobila dvakrat.
+   *
+   * Datum zadnjega zagona zapišemo pred pošiljanjem, ne po njem: raje kakšno
+   * vabilo izpustimo, kot da stranko nadlegujemo z istim sporočilom.
+   */
+  const followUpDone = s.followUpLastRun === today;
+  if (s.emailFollowUp !== "0" && !followUpDone) {
+    await setSetting("followUpLastRun", today);
     const weeks = Math.max(1, parseInt(s.followUpWeeks || "3", 10));
     const targetDays = weeks * 7;
     const clients = await listClients(today);
