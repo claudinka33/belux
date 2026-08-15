@@ -60,7 +60,7 @@ export default function Geslo() {
               type="password"
               autoComplete="current-password"
               value={currentPassword}
-              onChange={(e) => setCurrent(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCurrent(e.target.value)}
             />
           </div>
           <div>
@@ -70,7 +70,7 @@ export default function Geslo() {
               type="password"
               autoComplete="new-password"
               value={newPassword}
-              onChange={(e) => setNew(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNew(e.target.value)}
             />
             <p className="mt-1 text-xs text-ink/50">Najmanj 8 znakov.</p>
           </div>
@@ -81,7 +81,7 @@ export default function Geslo() {
               type="password"
               autoComplete="new-password"
               value={repeat}
-              onChange={(e) => setRepeat(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRepeat(e.target.value)}
             />
           </div>
         </div>
