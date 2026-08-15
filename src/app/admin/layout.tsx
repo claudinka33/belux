@@ -15,6 +15,7 @@ const NAV = [
   { href: "/admin/porocila", label: "Poročila", icon: "📈" },
   { href: "/admin/urnik", label: "Delovni čas", icon: "🕐" },
   { href: "/admin/nastavitve", label: "Nastavitve", icon: "⚙️" },
+  { href: "/admin/geslo", label: "Geslo", icon: "🔒" },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
