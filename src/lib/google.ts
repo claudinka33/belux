@@ -64,6 +64,56 @@ export async function getBusyIntervals(date: string): Promise<Array<[number, num
   }
 }
 
+/**
+ * Zasedenost za več dni naenkrat — z eno samo poizvedbo na Google.
+ *
+ * Mesečni koledar na strani prej Googla sploh ni vprašal (zaradi hitrosti), zato
+ * je dan, ki ga je Anita zasedla v svojem koledarju, strankam še vedno kazal kot
+ * prost. Ena poizvedba za cel mesec to reši, ne da bi koledar postal počasen.
+ */
+export async function getBusyByDate(
+  dates: string[]
+): Promise<Record<string, Array<[number, number]>>> {
+  const out: Record<string, Array<[number, number]>> = {};
+  try {
+    if (dates.length === 0) return out;
+    if ((await getSetting("gcalTwoWay")) !== "1") return out;
+    const cal = await calendarClient();
+    if (!cal) return out;
+    const calendarId = (await getSetting("gcalCalendarId")) || "primary";
+
+    const res = await cal.freebusy.query({
+      requestBody: {
+        timeMin: ljubljanaToUtcIso(dates[0], 0),
+        timeMax: ljubljanaToUtcIso(dates[dates.length - 1], 24 * 60),
+        items: [{ id: calendarId }],
+      },
+    });
+    const busy = res.data.calendars?.[calendarId]?.busy ?? [];
+    if (busy.length === 0) return out;
+
+    for (const date of dates) {
+      const dayStart = new Date(ljubljanaToUtcIso(date, 0)).getTime();
+      const dayEnd = new Date(ljubljanaToUtcIso(date, 24 * 60)).getTime();
+      const spans: Array<[number, number]> = [];
+      for (const b of busy) {
+        if (!b.start || !b.end) continue;
+        const s = new Date(b.start).getTime();
+        const e = new Date(b.end).getTime();
+        if (e <= dayStart || s >= dayEnd) continue;
+        spans.push([
+          Math.max(0, Math.round((s - dayStart) / 60000)),
+          Math.min(24 * 60, Math.round((e - dayStart) / 60000)),
+        ]);
+      }
+      if (spans.length > 0) out[date] = spans;
+    }
+  } catch {
+    /* koledar ni kritičen — brez njega se strani nič ne podre */
+  }
+  return out;
+}
+
 export async function createCalendarEvent(booking: {
   date: string; startMin: number; endMin: number;
   serviceName: string; firstName: string; lastName: string; email: string; phone: string; note: string;
