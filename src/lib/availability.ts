@@ -1,5 +1,5 @@
 import { db, tables } from "./db";
-import { and, eq } from "drizzle-orm";
+import { and, eq, gte, lte } from "drizzle-orm";
 import { getAllSettings } from "./settings";
 import { getBusyIntervals, getBusyByDate } from "./google";
 import { nowInLjubljana, weekdayOf, addDays } from "./time";
@@ -111,16 +111,64 @@ export async function getMonthAvailability(
     candidates.push(date);
   }
 
-  const busyByDate = await getBusyByDate(candidates);
+  if (candidates.length === 0) return out;
+
+  /**
+   * Vse za cel mesec s tremi poizvedbami namesto z dvema na vsak dan.
+   *
+   * Prej je bilo pri 31 dneh okoli 60 zaporednih poizvedb v bazo. Ker Turso
+   * teče na drugem strežniku in vsaka poizvedba stane svojih ~70 ms, se je
+   * koledar nalagal pet sekund. Zdaj so tri poizvedbe, ostalo se izračuna
+   * iz pomnilnika.
+   */
+  const from = candidates[0];
+  const to = candidates[candidates.length - 1];
+
+  const [allHours, overrideRows, bookingRows, busyByDate] = await Promise.all([
+    db.select().from(tables.workingHours).all(),
+    db
+      .select()
+      .from(tables.dayOverrides)
+      .where(and(gte(tables.dayOverrides.date, from), lte(tables.dayOverrides.date, to)))
+      .all(),
+    db
+      .select()
+      .from(tables.bookings)
+      .where(
+        and(
+          eq(tables.bookings.status, "POTRJENO"),
+          gte(tables.bookings.date, from),
+          lte(tables.bookings.date, to)
+        )
+      )
+      .all(),
+    getBusyByDate(candidates),
+  ]);
+
+  const dayIntervalsOf = (date: string): Interval[] => {
+    const ov = overrideRows.filter((o) => o.date === date);
+    if (ov.length > 0) {
+      if (ov.some((o) => o.closed)) return [];
+      return ov
+        .filter((o) => o.startMin != null && o.endMin != null)
+        .map((o) => [o.startMin!, o.endMin!] as Interval);
+    }
+    return allHours
+      .filter((w) => w.weekday === weekdayOf(date))
+      .map((w) => [w.startMin, w.endMin] as Interval)
+      .sort((a, b) => a[0] - b[0]);
+  };
 
   for (const date of candidates) {
-    const workIntervals = await getDayIntervals(date);
+    const workIntervals = dayIntervalsOf(date);
     if (workIntervals.length === 0) {
       out[date] = false;
       continue;
     }
     const busy: Interval[] = [
-      ...(await getBookedIntervals(date, buffer)),
+      ...bookingRows
+        .filter((b) => b.date === date)
+        .map((b) => [b.startMin, b.endMin + buffer] as Interval),
       ...(busyByDate[date] ?? []),
     ];
     const earliest = date === now.date ? now.minutes + (parseFloat(s.minNoticeHours) || 0) * 60 : 0;
