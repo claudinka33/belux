@@ -2,7 +2,16 @@ import * as t from "./schema";
 import bcrypt from "bcryptjs";
 import { eq } from "drizzle-orm";
 
-// Samodejno napolni prazno bazo s cenikom Be.Lux in privzetim urnikom.
+/**
+ * Napolni bazo z manjkajočimi podatki.
+ *
+ * Vsak del se preverja posebej — skrbniki, delovni čas in vsaka kategorija
+ * cenika. Prejšnja različica je pogledala samo, ali obstaja kakšna storitev,
+ * in če je polnjenje umrlo sredi poti (kar se na strežniku brez stanja zlahka
+ * zgodi), se ni nikoli več dokončalo: trepalnice so bile vpisane, obrvi,
+ * make-up in delovni čas pa ne. Brez delovnega časa koledar ne ponudi
+ * nobenega termina.
+ */
 
 /**
  * Kdo sme v dashboard.
@@ -14,8 +23,7 @@ import { eq } from "drizzle-orm";
  *  - kdor je na seznamu, dobi vlogo ADMIN,
  *  - geslo se zapiše samo, kadar uporabnik še nima svojega, zato se
  *    geslo, spremenjeno v dashboardu, ob naslednjem zagonu ne povozi,
- *  - kdor NI na seznamu, vlogo ADMIN izgubi (tako odpade privzeti
- *    anita@belux.si, katerega geslo je bilo zapisano v javni kodi).
+ *  - kdor NI na seznamu, vlogo ADMIN izgubi.
  *
  * Če ADMIN_SEED ni nastavljen, funkcija ne naredi ničesar — da se ob
  * pomotoma izbrisani spremenljivki nihče ne zaklene ven.
@@ -65,58 +73,121 @@ export async function ensureAdmins(db: any) {
   }
 }
 
+/** Privzet delovni čas: ponedeljek–petek 8:00–16:00. */
+async function ensureWorkingHours(db: any) {
+  const rows: any[] = await db.select().from(t.workingHours).all();
+  if (rows.length > 0) return;
+  for (let wd = 0; wd < 5; wd++) {
+    await db.insert(t.workingHours).values({ weekday: wd, startMin: 8 * 60, endMin: 16 * 60 });
+  }
+}
+
+type Svc = { name: string; description: string; durationMin: number; price: number };
+type Group = { category: string; parent: string | null; order: number; services: Svc[] };
+
+const CATALOG: Group[] = [
+  {
+    category: "Trepalnice",
+    parent: null,
+    order: 0,
+    services: [
+      { name: "Klasične trepalnice 1:1 - prvič", description: "Klasične trepalnice 1:1 💫 Naraven videz, elegantna dolžina, vsakodnevna svežina.", durationMin: 105, price: 40 },
+      { name: "Klasične trepalnice 1:1 | Korekcija do 2 tedna", description: "Korekcija trepalnic 1:1 – do 2 tedna 🔄 Osvežitev in popoln videz brez ponovnega podaljševanja.", durationMin: 75, price: 25 },
+      { name: "Klasične trepalnice 1:1 | Korekcija do 3 tednov", description: "Korekcija trepalnic 1:1 – do 3 tedne 🔄 Podaljšaj življenje svojih trepalnic – svež videz, brez ponovne celotne aplikacije.", durationMin: 75, price: 30 },
+      { name: "Klasične trepalnice 1:1 | Korekcija do 4 tednov", description: "Korekcija trepalnic 1:1 – do 4 tedne 🕐 Za vse, ki ste malo zamudile – a si še vedno želite lepih, polnih trepalnic.", durationMin: 90, price: 35 },
+      { name: "Klasične trepalnice 1:1 | Korekcija od 5 tednov in več", description: "Korekcija trepalnic 1:1 – 5 tednov in več 🕐 Za vse, ki ste zamudile svoj termin – a si še vedno želite urejenih in elegantnih trepalnic.", durationMin: 105, price: 60 },
+      { name: "Hybrid trepalnice - prvič", description: "✨ Hibridne trepalnice – popolna kombinacija volumna in naravnosti ✨", durationMin: 105, price: 40 },
+      { name: "Hybrid trepalnice | Korekcija do 2 tednov", description: "Korekcija hybrida – do 2 tedna 🔄 Mini osvežitev za maksimalen učinek.", durationMin: 75, price: 25 },
+      { name: "Hybrid trepalnice | Korekcija do 3 tednov", description: "Korekcija hybrida – do 3 tedne 🔄 Svež in poln pogled tudi po treh tednih.", durationMin: 75, price: 30 },
+      { name: "Hybrid trepalnice | Korekcija do 4 tednov", description: "Korekcija hybrida – do 4 tedne 🔄 Obnova, ko ste nekoliko zamudili – a še vedno želite popoln videz.", durationMin: 90, price: 35 },
+      { name: "Hybrid trepalnice | Korekcija od 5 tednov in več", description: "Korekcija hybrida – od 5 tednov naprej 🔄 Obnova, ko ste zamudili – a še vedno želite popoln videz.", durationMin: 90, price: 60 },
+      { name: "Volumenske trepalnice - prvič", description: "🌟 Dramatičen volumen, brez teže – za izrazit, a še vedno eleganten pogled.", durationMin: 105, price: 40 },
+      { name: "Volumenske trepalnice | Korekcija do 2 tedna", description: "Korekcija volumna – do 2 tedna 🔄 Mini osvežitev za maksimalen učinek.", durationMin: 75, price: 25 },
+      { name: "Volumenske trepalnice | Korekcija do 3 tednov", description: "Korekcija volumna – do 3 tedne 🔄 Svež in poln pogled tudi po treh tednih.", durationMin: 75, price: 30 },
+      { name: "Volumenske trepalnice | Korekcija do 4 tednov", description: "Korekcija volumna – do 4 tedne 🔄 Obnova, ko ste nekoliko zamudili – a še vedno želite popoln videz.", durationMin: 90, price: 35 },
+      { name: "Volumenske trepalnice | Korekcija od 5 tednov in več", description: "Korekcija volumna – 5 tednov in več 🔄 Obnova, ko ste zamudili termin – a še vedno želite popoln videz.", durationMin: 90, price: 60 },
+      { name: "Odstranitev trepalnic", description: "Odstranitev podaljšanih trepalnic. Nežno in strokovno odstranimo stare podaljške brez poškodovanja naravnih trepalnic.", durationMin: 60, price: 10 },
+    ],
+  },
+  {
+    category: "Obrvi",
+    parent: null,
+    order: 1,
+    services: [
+      { name: "Laminacija z barvanjem in oblikovanjem obrvi", description: "🌺 Popolna nega za vaš pogled – vse v enem tretmaju.", durationMin: 60, price: 40 },
+      { name: "Laminacija obrvi", description: "🌿 Naraven dvig in nega vaših obrvi – brez umetnih podaljškov.", durationMin: 30, price: 35 },
+      { name: "Barvanje obrvi", description: "🎨 Poudarjene, temne obrvi – brez vsakodnevne uporabe svinčnika.", durationMin: 15, price: 4 },
+      { name: "Urejanje obrvi", description: "🪶 Hitra osvežitev za urejen in negovan videz.", durationMin: 15, price: 6 },
+      { name: "Oblikovanje in barvanje obrvi", description: "Oblikovanje in barvanje obrvi za popoln okvir obraza.", durationMin: 60, price: 10 },
+    ],
+  },
+  {
+    category: "Make-up",
+    parent: null,
+    order: 2,
+    services: [
+      { name: "Poskusno ličenje", description: "Poskusno ličenje — preizkusi svoj videz pred posebnim dogodkom.", durationMin: 60, price: 50 },
+      { name: "Priložnostno ličenje", description: "💄 Vključuje: temeljita priprava kože (čiščenje, podlaga, primer).", durationMin: 60, price: 50 },
+    ],
+  },
+  {
+    category: "Poročno ličenje",
+    parent: "Make-up",
+    order: 0,
+    services: [
+      { name: "Osnovni poročni meni", description: "Vključuje: 💍 oblikovanje obrvi, poročno ličenje na dan poroke.", durationMin: 90, price: 80 },
+      { name: "Vip poročni meni", description: "Vključuje: 💍 poskusno poročno ličenje, oblikovanje obrvi, poročno ličenje na dan poroke.", durationMin: 90, price: 120 },
+    ],
+  },
+];
+
+/**
+ * Dopolni cenik. Za vsako kategorijo posebej: če je ni, jo ustvari; če v njej
+ * ni nobene storitve, vpiše njene storitve. Kar je Anita že spremenila ali
+ * izbrisala, ostane nedotaknjeno — dodajamo samo tam, kjer je prazno.
+ */
+async function ensureCatalog(db: any) {
+  let order = 0;
+
+  for (const group of CATALOG) {
+    const cats: any[] = await db.select().from(t.categories).all();
+    let category = cats.find((c) => c.name === group.category);
+
+    if (!category) {
+      const parent = group.parent ? cats.find((c) => c.name === group.parent) : null;
+      category = await db
+        .insert(t.categories)
+        .values({
+          name: group.category,
+          order: group.order,
+          parentId: parent ? parent.id : null,
+        })
+        .returning()
+        .get();
+    }
+
+    const services: any[] = await db.select().from(t.services).all();
+    const mine = services.filter((s) => s.categoryId === category.id);
+    if (mine.length > 0) {
+      order += group.services.length;
+      continue;
+    }
+
+    for (const svc of group.services) {
+      await db.insert(t.services).values({
+        categoryId: category.id,
+        name: svc.name,
+        description: svc.description,
+        durationMin: svc.durationMin,
+        price: svc.price,
+        order: order++,
+      });
+    }
+  }
+}
+
 export async function seedIfEmpty(db: any) {
   await ensureAdmins(db);
-
-  const existing = await db.select().from(t.services).all();
-  if (existing.length > 0) return;
-
-  const cat = async (name: string, order: number, parentId: string | null = null) => {
-    const row = await db.insert(t.categories).values({ name, order, parentId }).returning().get();
-    return row.id as string;
-  };
-
-  const trep = await cat("Trepalnice", 0);
-  const obrvi = await cat("Obrvi", 1);
-  const makeup = await cat("Make-up", 2);
-  const poroka = await cat("Poročno ličenje", 0, makeup);
-
-  let i = 0;
-  const svc = (categoryId: string, name: string, description: string, durationMin: number, price: number) =>
-    db.insert(t.services).values({ categoryId, name, description, durationMin, price, order: i++ }).run();
-
-  await svc(trep, "Klasične trepalnice 1:1 - prvič", "Klasične trepalnice 1:1 💫 Naraven videz, elegantna dolžina, vsakodnevna svežina.", 105, 40);
-  await svc(trep, "Klasične trepalnice 1:1 | Korekcija do 2 tedna", "Korekcija trepalnic 1:1 – do 2 tedna 🔄 Osvežitev in popoln videz brez ponovnega podaljševanja.", 75, 25);
-  await svc(trep, "Klasične trepalnice 1:1 | Korekcija do 3 tednov", "Korekcija trepalnic 1:1 – do 3 tedne 🔄 Podaljšaj življenje svojih trepalnic – svež videz, brez ponovne celotne aplikacije.", 75, 30);
-  await svc(trep, "Klasične trepalnice 1:1 | Korekcija do 4 tednov", "Korekcija trepalnic 1:1 – do 4 tedne 🕐 Za vse, ki ste malo zamudile – a si še vedno želite lepih, polnih trepalnic.", 90, 35);
-  await svc(trep, "Klasične trepalnice 1:1 | Korekcija od 5 tednov in več", "Korekcija trepalnic 1:1 – 5 tednov in več 🕐 Za vse, ki ste zamudile svoj termin – a si še vedno želite urejenih in elegantnih trepalnic.", 105, 60);
-  await svc(trep, "Hybrid trepalnice - prvič", "✨ Hibridne trepalnice – popolna kombinacija volumna in naravnosti ✨", 105, 40);
-  await svc(trep, "Hybrid trepalnice | Korekcija do 2 tednov", "Korekcija hybrida – do 2 tedna 🔄 Mini osvežitev za maksimalen učinek.", 75, 25);
-  await svc(trep, "Hybrid trepalnice | Korekcija do 3 tednov", "Korekcija hybrida – do 3 tedne 🔄 Svež in poln pogled tudi po treh tednih.", 75, 30);
-  await svc(trep, "Hybrid trepalnice | Korekcija do 4 tednov", "Korekcija hybrida – do 4 tedne 🔄 Obnova, ko ste nekoliko zamudili – a še vedno želite popoln videz.", 90, 35);
-  await svc(trep, "Hybrid trepalnice | Korekcija od 5 tednov in več", "Korekcija hybrida – od 5 tednov naprej 🔄 Obnova, ko ste zamudili – a še vedno želite popoln videz.", 90, 60);
-  await svc(trep, "Volumenske trepalnice - prvič", "🌟 Dramatičen volumen, brez teže – za izrazit, a še vedno eleganten pogled.", 105, 40);
-  await svc(trep, "Volumenske trepalnice | Korekcija do 2 tedna", "Korekcija volumna – do 2 tedna 🔄 Mini osvežitev za maksimalen učinek.", 75, 25);
-  await svc(trep, "Volumenske trepalnice | Korekcija do 3 tednov", "Korekcija volumna – do 3 tedne 🔄 Svež in poln pogled tudi po treh tednih.", 75, 30);
-  await svc(trep, "Volumenske trepalnice | Korekcija do 4 tednov", "Korekcija volumna – do 4 tedne 🔄 Obnova, ko ste nekoliko zamudili – a še vedno želite popoln videz.", 90, 35);
-  await svc(trep, "Volumenske trepalnice | Korekcija od 5 tednov in več", "Korekcija volumna – 5 tednov in več 🔄 Obnova, ko ste zamudili termin – a še vedno želite popoln videz.", 90, 60);
-  await svc(trep, "Odstranitev trepalnic", "Odstranitev podaljšanih trepalnic. Nežno in strokovno odstranimo stare podaljške brez poškodovanja naravnih trepalnic.", 60, 10);
-
-  await svc(obrvi, "Laminacija z barvanjem in oblikovanjem obrvi", "🌺 Popolna nega za vaš pogled – vse v enem tretmaju.", 60, 40);
-  await svc(obrvi, "Laminacija obrvi", "🌿 Naraven dvig in nega vaših obrvi – brez umetnih podaljškov.", 30, 35);
-  await svc(obrvi, "Barvanje obrvi", "🎨 Poudarjene, temne obrvi – brez vsakodnevne uporabe svinčnika.", 15, 4);
-  await svc(obrvi, "Urejanje obrvi", "🪶 Hitra osvežitev za urejen in negovan videz.", 15, 6);
-  await svc(obrvi, "Oblikovanje in barvanje obrvi", "Oblikovanje in barvanje obrvi za popoln okvir obraza.", 60, 10);
-
-  await svc(makeup, "Poskusno ličenje", "Poskusno ličenje — preizkusi svoj videz pred posebnim dogodkom.", 60, 50);
-  await svc(makeup, "Priložnostno ličenje", "💄 Vključuje: temeljita priprava kože (čiščenje, podlaga, primer).", 60, 50);
-  await svc(poroka, "Osnovni poročni meni", "Vključuje: 💍 oblikovanje obrvi, poročno ličenje na dan poroke.", 90, 80);
-  await svc(poroka, "Vip poročni meni", "Vključuje: 💍 poskusno poročno ličenje, oblikovanje obrvi, poročno ličenje na dan poroke.", 90, 120);
-
-  // Privzet delovni čas: pon–pet 8:00–16:00
-  for (let wd = 0; wd < 5; wd++) {
-    await db.insert(t.workingHours).values({ weekday: wd, startMin: 8 * 60, endMin: 16 * 60 }).run();
-  }
-
-  // Skrbniki se uredijo v ensureAdmins() na vrhu te datoteke.
+  await ensureWorkingHours(db);
+  await ensureCatalog(db);
 }
