@@ -1,9 +1,74 @@
 import * as t from "./schema";
 import bcrypt from "bcryptjs";
+import { eq } from "drizzle-orm";
 
 // Samodejno napolni prazno bazo s cenikom Be.Lux in privzetim urnikom.
 
+/**
+ * Kdo sme v dashboard.
+ *
+ * Seznam pride iz spremenljivke ADMIN_SEED (nastavljena v Vercelu), oblika:
+ *   ime@primer.si:geslo,drugi@primer.si:drugogeslo
+ *
+ * Pravila:
+ *  - kdor je na seznamu, dobi vlogo ADMIN,
+ *  - geslo se zapiše samo, kadar uporabnik še nima svojega, zato se
+ *    geslo, spremenjeno v dashboardu, ob naslednjem zagonu ne povozi,
+ *  - kdor NI na seznamu, vlogo ADMIN izgubi (tako odpade privzeti
+ *    anita@belux.si, katerega geslo je bilo zapisano v javni kodi).
+ *
+ * Če ADMIN_SEED ni nastavljen, funkcija ne naredi ničesar — da se ob
+ * pomotoma izbrisani spremenljivki nihče ne zaklene ven.
+ */
+export async function ensureAdmins(db: any) {
+  const spec = (process.env.ADMIN_SEED || "").trim();
+  if (!spec) return;
+
+  const wanted = new Map<string, string>();
+  for (const part of spec.split(",")) {
+    const sep = part.indexOf(":");
+    if (sep < 1) continue;
+    const email = part.slice(0, sep).trim().toLowerCase();
+    const password = part.slice(sep + 1).trim();
+    if (email && password) wanted.set(email, password);
+  }
+  if (wanted.size === 0) return;
+
+  const users = await db.select().from(t.users).all();
+  const byEmail = new Map<string, any>(
+    users.map((u: any) => [String(u.email).toLowerCase(), u])
+  );
+
+  for (const [email, password] of wanted) {
+    const user = byEmail.get(email);
+    if (!user) {
+      await db.insert(t.users).values({
+        email,
+        firstName: "",
+        lastName: "",
+        passwordHash: bcrypt.hashSync(password, 10),
+        role: "ADMIN",
+      });
+      continue;
+    }
+    const patch: Record<string, string> = {};
+    if (user.role !== "ADMIN") patch.role = "ADMIN";
+    if (!user.passwordHash) patch.passwordHash = bcrypt.hashSync(password, 10);
+    if (Object.keys(patch).length > 0) {
+      await db.update(t.users).set(patch).where(eq(t.users.id, user.id));
+    }
+  }
+
+  for (const user of users as any[]) {
+    if (user.role === "ADMIN" && !wanted.has(String(user.email).toLowerCase())) {
+      await db.update(t.users).set({ role: "CLIENT" }).where(eq(t.users.id, user.id));
+    }
+  }
+}
+
 export async function seedIfEmpty(db: any) {
+  await ensureAdmins(db);
+
   const existing = await db.select().from(t.services).all();
   if (existing.length > 0) return;
 
@@ -54,18 +119,5 @@ export async function seedIfEmpty(db: any) {
     await db.insert(t.workingHours).values({ weekday: wd, startMin: 8 * 60, endMin: 16 * 60 }).run();
   }
 
-  // Admin uporabnica
-  const admins = await db.select().from(t.users).all();
-  if (!admins.some((u: { role: string }) => u.role === "ADMIN")) {
-    await db
-      .insert(t.users)
-      .values({
-        email: "anita@belux.si",
-        firstName: "Anita",
-        lastName: "Be.Lux",
-        passwordHash: bcrypt.hashSync(process.env.ADMIN_PASSWORD || "belux2026", 10),
-        role: "ADMIN",
-      })
-      .run();
-  }
+  // Skrbniki se uredijo v ensureAdmins() na vrhu te datoteke.
 }
