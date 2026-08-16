@@ -149,8 +149,11 @@ const CATALOG: Group[] = [
 async function ensureCatalog(db: any) {
   let order = 0;
 
+  // Kategorije in storitve preberemo enkrat, ne pri vsaki skupini posebej.
+  const cats: any[] = await db.select().from(t.categories).all();
+  const services: any[] = await db.select().from(t.services).all();
+
   for (const group of CATALOG) {
-    const cats: any[] = await db.select().from(t.categories).all();
     let category = cats.find((c) => c.name === group.category);
 
     if (!category) {
@@ -164,9 +167,9 @@ async function ensureCatalog(db: any) {
         })
         .returning()
         .get();
+      cats.push(category);
     }
 
-    const services: any[] = await db.select().from(t.services).all();
     const mine = services.filter((s) => s.categoryId === category.id);
     if (mine.length > 0) {
       order += group.services.length;
