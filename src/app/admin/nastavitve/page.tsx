@@ -159,19 +159,23 @@ function Toggle({
 }) {
   const on = (s[k] ?? "1") !== "0";
   return (
-    <label className="flex cursor-pointer items-center gap-3 rounded-xl px-1 py-2 text-sm hover:bg-belux-50/60">
-      <button
-        type="button"
-        role="switch"
-        aria-checked={on}
-        onClick={() => setS({ ...s, [k]: on ? "0" : "1" })}
+    /* Cel vrstica je stikalo: prej je delovalo samo tistih 24 px kvadratka,
+       klik na besedilo pa ni naredil ničesar. */
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      onClick={() => setS({ ...s, [k]: on ? "0" : "1" })}
+      className="flex min-h-[44px] w-full cursor-pointer items-center gap-3 rounded-xl px-1 py-2 text-left text-sm hover:bg-belux-50/60"
+    >
+      <span
         className={`relative h-6 w-11 shrink-0 rounded-full transition ${on ? "bg-belux-500" : "bg-belux-200"}`}
       >
         <span
           className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${on ? "left-[22px]" : "left-0.5"}`}
         />
-      </button>
+      </span>
       <span>{label}</span>
-    </label>
+    </button>
   );
 }
