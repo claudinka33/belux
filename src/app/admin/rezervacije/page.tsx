@@ -133,6 +133,9 @@ function AddModal({ services, onClose, onSaved }: { services: Service[]; onClose
   const [canForce, setCanForce] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  /* Ali naj stranka dobi potrditev po e-pošti. */
+  const [notify, setNotify] = useState(true);
+
   /* Šepetalnik strank — da Anita imena ne tipka znova. */
   const [q, setQ] = useState("");
   const [hits, setHits] = useState<ClientHit[]>([]);
@@ -179,7 +182,7 @@ function AddModal({ services, onClose, onSaved }: { services: Service[]; onClose
     const res = await fetch("/api/admin/bookings", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...f, startMin: hhmmToMin(f.time), force }),
+      body: JSON.stringify({ ...f, startMin: hhmmToMin(f.time), force, notify: notify && !!f.email }),
     });
     const d = await res.json();
     setSaving(false);
@@ -270,6 +273,28 @@ function AddModal({ services, onClose, onSaved }: { services: Service[]; onClose
             <div><label className="label">E-naslov</label><input className="input" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} /></div>
           </div>
           <div><label className="label">Opomba</label><input className="input" value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} /></div>
+
+          <label
+            className={`flex items-start gap-3 rounded-xl border p-3 ${
+              f.email ? "border-belux-200 bg-belux-50/50" : "border-ink/10 bg-ink/5"
+            }`}
+          >
+            <input
+              type="checkbox"
+              className="mt-0.5"
+              checked={notify && !!f.email}
+              disabled={!f.email}
+              onChange={(e) => setNotify(e.target.checked)}
+            />
+            <span className="text-sm">
+              Pošlji stranki potrditev po e-pošti
+              <span className="mt-0.5 block text-xs text-ink/50">
+                {f.email
+                  ? "Enako sporočilo kot pri spletni rezervaciji — s podatki o terminu, gumbom za Google Koledar in povezavo za preklic."
+                  : "Za pošiljanje vpiši e-naslov stranke."}
+              </span>
+            </span>
+          </label>
         </div>
         <div className="mt-6 flex justify-end gap-3">
           <button className="btn-secondary" onClick={onClose}>Prekliči</button>
