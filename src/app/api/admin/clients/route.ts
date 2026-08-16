@@ -11,7 +11,36 @@ export async function GET(req: Request) {
   const guard = await requireAdmin();
   if (!guard.ok) return guard.res;
 
-  const id = new URL(req.url).searchParams.get("id");
+  const url = new URL(req.url);
+
+  /**
+   * Iskanje po kartoteki za šepetalnik v obrazcu »Ročno dodaj termin«.
+   * Anita natipka nekaj črk imena, priimka, e-naslova ali telefona in izbere
+   * obstoječo stranko, namesto da bi podatke vpisovala znova — tako se termin
+   * pripne k pravi kartoteki in se zgodovina obiskov ne razcepi.
+   */
+  const q = url.searchParams.get("q");
+  if (q !== null) {
+    const term = q.trim().toLowerCase();
+    if (term.length < 2) return NextResponse.json({ clients: [] });
+    const all = await db.select().from(tables.clients).all();
+    const hits = all
+      .filter((c) =>
+        `${c.firstName} ${c.lastName} ${c.email} ${c.phone}`.toLowerCase().includes(term)
+      )
+      .sort((a, b) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`, "sl"))
+      .slice(0, 8)
+      .map((c) => ({
+        id: c.id,
+        firstName: c.firstName,
+        lastName: c.lastName,
+        email: c.email,
+        phone: c.phone,
+      }));
+    return NextResponse.json({ clients: hits });
+  }
+
+  const id = url.searchParams.get("id");
   if (id) {
     const client = await db.select().from(tables.clients).where(eq(tables.clients.id, id)).get();
     if (!client) return NextResponse.json({ error: "Stranka ne obstaja." }, { status: 404 });
