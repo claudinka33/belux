@@ -9,6 +9,7 @@ type B = {
   serviceName: string; price: number;
 };
 type Service = { id: string; name: string; durationMin: number; price: number; active: boolean };
+type ClientHit = { id: string; firstName: string; lastName: string; email: string; phone: string };
 
 export default function Rezervacije() {
   const today = new Date().toLocaleDateString("sv-SE", { timeZone: "Europe/Ljubljana" });
@@ -110,6 +111,46 @@ function AddModal({ services, onClose, onSaved }: { services: Service[]; onClose
   const [canForce, setCanForce] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  /* Šepetalnik strank — da Anita imena ne tipka znova. */
+  const [q, setQ] = useState("");
+  const [hits, setHits] = useState<ClientHit[]>([]);
+  const [picked, setPicked] = useState<ClientHit | null>(null);
+
+  useEffect(() => {
+    if (picked) return;
+    const term = q.trim();
+    if (term.length < 2) {
+      setHits([]);
+      return;
+    }
+    const t = setTimeout(() => {
+      fetch(`/api/admin/clients?q=${encodeURIComponent(term)}`)
+        .then((r) => r.json())
+        .then((d) => setHits(d.clients || []))
+        .catch(() => setHits([]));
+    }, 200);
+    return () => clearTimeout(t);
+  }, [q, picked]);
+
+  function choose(c: ClientHit) {
+    setPicked(c);
+    setHits([]);
+    setQ(`${c.firstName} ${c.lastName}`.trim());
+    setF((prev) => ({
+      ...prev,
+      firstName: c.firstName,
+      lastName: c.lastName,
+      email: c.email,
+      phone: c.phone,
+    }));
+  }
+
+  function clearPicked() {
+    setPicked(null);
+    setQ("");
+    setF((prev) => ({ ...prev, firstName: "", lastName: "", email: "", phone: "" }));
+  }
+
   async function save(force = false) {
     setSaving(true);
     setError("");
@@ -151,6 +192,52 @@ function AddModal({ services, onClose, onSaved }: { services: Service[]; onClose
           <div className="grid grid-cols-2 gap-4">
             <div><label className="label">Datum *</label><input type="date" className="input" value={f.date} onChange={(e) => setF({ ...f, date: e.target.value })} /></div>
             <div><label className="label">Ura *</label><input type="time" className="input" step={300} value={f.time} onChange={(e) => setF({ ...f, time: e.target.value })} /></div>
+          </div>
+          <div className="relative">
+            <label className="label">Obstoječa stranka</label>
+            {picked ? (
+              <div className="flex items-center justify-between gap-3 rounded-xl border border-belux-200 bg-belux-50 px-4 py-3">
+                <span className="text-sm">
+                  <strong>{picked.firstName} {picked.lastName}</strong>
+                  {picked.email && <span className="text-ink/50"> · {picked.email}</span>}
+                  {picked.phone && <span className="text-ink/50"> · {picked.phone}</span>}
+                </span>
+                <button type="button" className="text-sm text-belux-700 underline" onClick={clearPicked}>
+                  Zamenjaj
+                </button>
+              </div>
+            ) : (
+              <>
+                <input
+                  className="input"
+                  placeholder="Začni tipkati ime, e-naslov ali telefon …"
+                  value={q}
+                  onChange={(e) => setQ(e.target.value)}
+                  autoComplete="off"
+                />
+                {hits.length > 0 && (
+                  <ul className="absolute z-10 mt-1 w-full overflow-hidden rounded-xl border border-belux-200 bg-white shadow-card">
+                    {hits.map((c) => (
+                      <li key={c.id}>
+                        <button
+                          type="button"
+                          className="block w-full px-4 py-2.5 text-left text-sm hover:bg-belux-50"
+                          onClick={() => choose(c)}
+                        >
+                          <strong>{c.firstName} {c.lastName}</strong>
+                          {(c.email || c.phone) && (
+                            <span className="text-ink/50"> · {c.email || c.phone}</span>
+                          )}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <p className="mt-1 text-xs text-ink/50">
+                  Za novo stranko pusti prazno in izpolni polja spodaj.
+                </p>
+              </>
+            )}
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div><label className="label">Ime</label><input className="input" value={f.firstName} onChange={(e) => setF({ ...f, firstName: e.target.value })} /></div>
