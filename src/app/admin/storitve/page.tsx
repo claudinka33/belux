@@ -65,11 +65,11 @@ export default function Storitve() {
             </div>
             <p className="font-semibold text-belux-600">{formatPrice(s.price)}</p>
             <div className="flex gap-2 text-xs">
-              <button onClick={() => setEditing(s)} className="rounded-full bg-belux-100 px-3 py-1.5 font-medium text-belux-700 hover:bg-belux-200">Uredi</button>
-              <button onClick={() => toggleActive(s)} className="rounded-full bg-amber-100 px-3 py-1.5 font-medium text-amber-800 hover:bg-amber-200">
+              <button onClick={() => setEditing(s)} className="pill bg-belux-100 text-belux-700 hover:bg-belux-200">Uredi</button>
+              <button onClick={() => toggleActive(s)} className="pill bg-amber-100 text-amber-800 hover:bg-amber-200">
                 {s.active ? "Skrij" : "Pokaži"}
               </button>
-              <button onClick={() => remove(s.id)} className="rounded-full bg-red-50 px-3 py-1.5 font-medium text-red-600 hover:bg-red-100">Izbriši</button>
+              <button onClick={() => remove(s.id)} className="pill bg-red-50 text-red-600 hover:bg-red-100">Izbriši</button>
             </div>
           </div>
         ))}
