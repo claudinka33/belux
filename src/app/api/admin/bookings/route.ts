@@ -185,3 +185,28 @@ export async function PUT(req: Request) {
   }
   return NextResponse.json({ booking: row });
 }
+
+/**
+ * Trajen izbris termina.
+ *
+ * Preklic (PUT s statusom PREKLICANO) termin obdrži v zgodovini in poročilih —
+ * to je običajna pot. Izbris je za pomote: napačno vnesen termin, testni vpis,
+ * podvojena rezervacija. Zapisa po izbrisu ni več nikjer, zato ga tudi poročila
+ * ne štejejo.
+ */
+export async function DELETE(req: Request) {
+  const guard = await requireAdmin();
+  if (!guard.ok) return guard.res;
+
+  const id = new URL(req.url).searchParams.get("id");
+  if (!id) return NextResponse.json({ error: "Manjka id." }, { status: 400 });
+
+  const existing = await db.select().from(tables.bookings).where(eq(tables.bookings.id, id)).get();
+  if (!existing) return NextResponse.json({ error: "Ne obstaja." }, { status: 404 });
+
+  // Termin izgine tudi iz Anitinega Google Koledarja
+  if (existing.gcalEventId) await deleteCalendarEvent(existing.gcalEventId);
+
+  await db.delete(tables.bookings).where(eq(tables.bookings.id, id));
+  return NextResponse.json({ ok: true });
+}
