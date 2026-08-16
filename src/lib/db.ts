@@ -83,26 +83,65 @@ function createLocalDb() {
   return drizzle(sqlite, { schema });
 }
 
+/**
+ * Oznaka, da je baza urejena. Poveča jo vsak, ki spremeni DDL ali ALTERS —
+ * brez tega popravek strukture ne bo nikoli izveden.
+ */
+const INIT_VERSION = "1";
+
+/**
+ * Priprava baze ob zagonu strežnika.
+ *
+ * Prej se je ob vsakem hladnem zagonu izvedlo okoli sedemnajst zaporednih
+ * poizvedb: ustvarjanje tabel, šest ALTER ukazov (ki vedno spodletijo, ker
+ * stolpci že obstajajo) in preverjanje cenika po kategorijah. Ker Turso teče
+ * na drugem strežniku, je to stalo nekaj sekund — in ker je promet redek, je
+ * skoraj vsak obisk hladen zagon, tako da je to čutila vsaka stran.
+ *
+ * Zdaj se ob urejeni bazi izvede ena sama poizvedba. Skrbniki se preverijo
+ * vedno, da sprememba ADMIN_SEED prime brez posega v kodo.
+ */
+async function initTurso(client: any, dbInstance: Db) {
+  try {
+    const res = await client.execute({
+      sql: "SELECT value FROM settings WHERE key = ?",
+      args: ["dbInit"],
+    });
+    if (res.rows?.[0]?.value === INIT_VERSION) {
+      const { ensureAdmins } = await import("./seed");
+      await ensureAdmins(dbInstance);
+      return;
+    }
+  } catch {
+    /* tabele še ni — spodaj jo ustvarimo */
+  }
+
+  await client.executeMultiple(DDL);
+  for (const stmt of ALTERS) {
+    try { await client.execute(stmt); } catch { /* stolpec že obstaja */ }
+  }
+  const { seedIfEmpty } = await import("./seed");
+  await seedIfEmpty(dbInstance);
+  await client.execute({
+    sql: "INSERT INTO settings (key, value) VALUES ('dbInit', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+    args: [INIT_VERSION],
+  });
+}
+
 function createTursoDb() {
-  
+
   const { createClient } = require("@libsql/client");
-  
+
   const { drizzle } = require("drizzle-orm/libsql");
   const client = createClient({
     url: process.env.TURSO_DATABASE_URL!,
     authToken: process.env.TURSO_AUTH_TOKEN,
   });
-  globalForDb.__beluxReady = client
-    .executeMultiple(DDL)
-    .then(async () => {
-      for (const stmt of ALTERS) {
-        try { await client.execute(stmt); } catch { /* stolpec že obstaja */ }
-      }
-      const { seedIfEmpty } = await import("./seed");
-      await seedIfEmpty(drizzle(client, { schema }));
-    })
-    .catch((e: unknown) => console.error("DB init error:", e));
-  return drizzle(client, { schema });
+  const dbInstance = drizzle(client, { schema });
+  globalForDb.__beluxReady = initTurso(client, dbInstance).catch((e: unknown) =>
+    console.error("DB init error:", e)
+  );
+  return dbInstance;
 }
 
 function createDb(): Db {
