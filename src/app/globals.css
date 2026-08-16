@@ -25,6 +25,12 @@ body {
   .label {
     @apply mb-1.5 block text-sm font-medium text-ink;
   }
+  /* Majhen gumb, ki je na telefonu še vedno dovolj velik za prst.
+     Apple in Google priporočata vsaj 44 oziroma 48 px; 40 px je razumen
+     kompromis, ki ne razbije postavitve. */
+  .pill {
+    @apply inline-flex min-h-[40px] items-center justify-center rounded-full px-4 text-sm font-medium transition;
+  }
   .card {
     @apply rounded-2xl bg-white p-5 shadow-card;
   }
