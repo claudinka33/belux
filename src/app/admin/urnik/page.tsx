@@ -61,14 +61,14 @@ export default function Urnik() {
                   –
                   <input type="time" className="bg-transparent text-sm" value={minToHHMM(iv.endMin)} onChange={(e) => setIv(wd, idx, "endMin", e.target.value)} />
                   <button
-                    className="ml-1 text-red-500"
+                    className="ml-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-lg text-red-500 hover:bg-red-50"
                     onClick={() => setHours((hs) => hs.filter((h) => h !== hours.filter((x) => x.weekday === wd)[idx]))}
                     title="Odstrani"
                   >×</button>
                 </span>
               ))}
               <button
-                className="rounded-full border border-dashed border-belux-300 px-3 py-1 text-xs text-belux-600 hover:bg-belux-50"
+                className="pill border border-dashed border-belux-300 text-belux-600 hover:bg-belux-50"
                 onClick={() => setHours((hs) => [...hs, { weekday: wd, startMin: 8 * 60, endMin: 16 * 60 }])}
               >
                 + dodaj interval
