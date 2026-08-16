@@ -27,6 +27,32 @@ export const DEFAULT_SETTINGS: Record<string, string> = {
   emailThanks: "1", // zahvala po opravljeni storitvi
   emailFollowUp: "1", // vabilo na korekcijo
   followUpWeeks: "3", // po koliko tednih poslati vabilo na korekcijo
+
+  // Besedila e-poštnih sporočil — Anita jih ureja v dashboardu (Sporočila).
+  // V besedilu delujejo oznake v zavitih oklepajih, npr. {ime} ali {datum}.
+  // Prazna vrstica pomeni nov odstavek. Ovojnico, tabelo s podatki in gumbe
+  // sestavi koda, zato sporočilo ne more razpasti.
+  mailBookingSubject: "Potrditev termina — {storitev}, {datum} ob {ura}",
+  mailBookingText:
+    "Pozdravljeni, {ime}!\n\nVaš termin je potrjen. 🎀",
+  mailReminderSubject: "Opomnik: jutri ob {ura} — {studio}",
+  mailReminderText:
+    "Pozdravljeni, {ime}!\n\nSamo prijazen opomnik — jutri se vidiva. 🌸",
+  mailThanksSubject: "Hvala za obisk — {studio}",
+  mailThanksText:
+    "Pozdravljeni, {ime}!\n\nHvala za obisk. Upam, da ste zadovoljni z rezultatom. 💖\n\nZa najlepši videz trepalnic je korekcijo priporočljivo opraviti na 2 do 4 tedne. Termin si lahko rezervirate kadarkoli:",
+  mailFollowUpSubject: "Čas za korekcijo? — {studio}",
+  mailFollowUpText:
+    "Pozdravljeni, {ime}!\n\nOd vašega zadnjega obiska so minili približno {tedni} tedni — čas je za osvežitev trepalnic. 💫",
+  mailCancelSubject: "Odpoved termina — {studio}",
+  mailCancelText:
+    "Pozdravljeni, {ime}!\n\nŽal moramo odpovedati vaš termin {storitev}, {datum} ob {ura}.\n\nIskreno se opravičujem za nevšečnost. Prosim, izberite nov termin, ki vam ustreza:",
+  mailRescheduleSubject: "Prestavljen termin — {novDatum} ob {novaUra}",
+  mailRescheduleText:
+    "Pozdravljeni, {ime}!\n\nVaš termin za {storitev} je bil prestavljen.",
+
+  // Odjavljeni od novičk — id-ji strank, ločeni z vejico.
+  novickeOdjave: "",
 };
 
 export async function getSetting(key: string): Promise<string> {
