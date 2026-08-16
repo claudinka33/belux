@@ -34,7 +34,11 @@ export default function SiteHeader() {
           {nav}
           <Link href="/naroci" className="btn-primary !px-5 !py-2.5">Naroči se</Link>
         </nav>
-        <button className="md:hidden" onClick={() => setOpen(!open)} aria-label="Meni">
+        <button
+          className="-mr-2 flex h-11 w-11 items-center justify-center rounded-lg md:hidden"
+          onClick={() => setOpen(!open)}
+          aria-label="Meni"
+        >
           <svg className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
             {open ? <path d="M6 18L18 6M6 6l12 12" /> : <path d="M4 7h16M4 12h16M4 17h16" />}
           </svg>
