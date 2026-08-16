@@ -14,6 +14,7 @@ const NAV = [
   { href: "/admin/storitve", label: "Storitve in cenik", icon: "💅" },
   { href: "/admin/porocila", label: "Poročila", icon: "📈" },
   { href: "/admin/urnik", label: "Delovni čas", icon: "🕐" },
+  { href: "/admin/sporocila", label: "Sporočila", icon: "✉️" },
   { href: "/admin/nastavitve", label: "Nastavitve", icon: "⚙️" },
   { href: "/admin/geslo", label: "Geslo", icon: "🔒" },
 ];
