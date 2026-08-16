@@ -85,23 +85,24 @@ export default function Rezervacije() {
             <h2 className="mb-3 font-semibold text-belux-700">{formatDateSl(date)}</h2>
             <div className="space-y-3">
               {list.map((b) => (
-                <div key={b.id} className={`card flex flex-wrap items-center gap-4 ${b.status === "PREKLICANO" ? "opacity-50" : ""}`}>
-                  <p className="w-24 text-lg font-semibold text-belux-600">{minToHHMM(b.startMin)}–{minToHHMM(b.endMin)}</p>
-                  <div className="min-w-0 flex-1">
-                    <p className="font-medium">{b.serviceName}</p>
-                    <p className="text-sm text-ink/50">
+                <div key={b.id} className={`card flex flex-wrap items-center gap-x-4 gap-y-3 ${b.status === "PREKLICANO" ? "opacity-50" : ""}`}>
+                  <p className="shrink-0 text-lg font-semibold text-belux-600">{minToHHMM(b.startMin)}–{minToHHMM(b.endMin)}</p>
+                  {/* Na telefonu gredo podatki v svojo vrstico, na širšem zaslonu ostanejo v sredini. */}
+                  <div className="order-last w-full min-w-0 sm:order-none sm:w-auto sm:flex-1">
+                    <p className="break-words font-medium">{b.serviceName}</p>
+                    <p className="break-words text-sm text-ink/50">
                       {b.firstName} {b.lastName}
                       {b.phone && <> · <a className="underline" href={`tel:${b.phone}`}>{b.phone}</a></>}
                       {b.email && <> · {b.email}</>}
                     </p>
                     {b.note && <p className="mt-1 text-xs italic text-ink/40">„{b.note}“</p>}
                   </div>
-                  <p className="font-semibold">{formatPrice(b.price)}</p>
-                  <div className="flex items-center gap-2">
+                  <p className="ml-auto shrink-0 font-semibold">{formatPrice(b.price)}</p>
+                  <div className="flex shrink-0 items-center gap-2">
                     {b.status === "PREKLICANO" ? (
-                      <span className="rounded-full bg-red-100 px-3 py-1 text-xs font-medium text-red-700">Preklicano</span>
+                      <span className="pill bg-red-100 text-red-700">Preklicano</span>
                     ) : (
-                      <button onClick={() => cancelBooking(b.id)} className="rounded-full bg-red-50 px-3 py-1 text-xs font-medium text-red-600 hover:bg-red-100">
+                      <button onClick={() => cancelBooking(b.id)} className="pill bg-red-50 text-red-600 hover:bg-red-100">
                         Prekliči
                       </button>
                     )}
@@ -109,7 +110,7 @@ export default function Rezervacije() {
                       onClick={() => deleteBooking(b)}
                       title="Trajno izbriši termin"
                       aria-label="Trajno izbriši termin"
-                      className="rounded-full px-2 py-1 text-sm text-ink/30 transition hover:bg-red-50 hover:text-red-600"
+                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-base text-ink/30 transition hover:bg-red-50 hover:text-red-600"
                     >
                       🗑
                     </button>
