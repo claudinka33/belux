@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db, tables } from "@/lib/db";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, or, sql } from "drizzle-orm";
 import { isSlotFree } from "@/lib/availability";
 import { createCalendarEvent } from "@/lib/google";
 import { sendBookingEmail, gcalLink, notifyAdminNewBooking } from "@/lib/email";
@@ -11,11 +11,24 @@ import { upsertClient } from "@/lib/clients";
 
 export const dynamic = "force-dynamic";
 
-// Moje rezervacije (prijavljen uporabnik)
+/**
+ * Moji termini (prijavljena stranka).
+ *
+ * Termin se veže na račun samo, če je bila stranka ob rezervaciji prijavljena.
+ * Ker pa je Anita stare stranke vnesla ročno in se te šele zdaj prijavljajo z
+ * Google računom, iščemo tudi po e-naslovu — tako punce takoj vidijo vse svoje
+ * pretekle obiske, ne le tistih, ki so nastali po prijavi.
+ */
 export async function GET() {
   const session = await getServerSession(authOptions);
-  const userId = (session as any)?.userId;
-  if (!userId) return NextResponse.json({ bookings: [] });
+  const userId = (session as any)?.userId as string | undefined;
+  const email = session?.user?.email?.toLowerCase().trim();
+  if (!userId && !email) return NextResponse.json({ bookings: [] });
+
+  const mine = [
+    ...(userId ? [eq(tables.bookings.userId, userId)] : []),
+    ...(email ? [sql`lower(${tables.bookings.email}) = ${email}`] : []),
+  ];
   const rows = await db
     .select({
       id: tables.bookings.id,
@@ -29,7 +42,7 @@ export async function GET() {
     })
     .from(tables.bookings)
     .innerJoin(tables.services, eq(tables.bookings.serviceId, tables.services.id))
-    .where(eq(tables.bookings.userId, userId))
+    .where(or(...mine))
     .orderBy(desc(tables.bookings.date))
     .all();
   return NextResponse.json({ bookings: rows });
