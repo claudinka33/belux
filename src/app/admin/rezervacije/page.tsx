@@ -41,6 +41,18 @@ export default function Rezervacije() {
     load();
   }
 
+  async function deleteBooking(b: B) {
+    const kdaj = `${formatDateSl(b.date)} ob ${minToHHMM(b.startMin)}`;
+    const ok = confirm(
+      `Trajno izbrišem termin?\n\n${b.firstName} ${b.lastName} — ${b.serviceName}\n${kdaj}\n\n` +
+        "Termin izgine tudi iz Google Koledarja in iz poročil. Tega ni mogoče razveljaviti.\n" +
+        "Če želiš termin samo odpovedati, uporabi Prekliči."
+    );
+    if (!ok) return;
+    await fetch(`/api/admin/bookings?id=${b.id}`, { method: "DELETE" });
+    load();
+  }
+
   const byDate: Record<string, B[]> = {};
   for (const b of bookings || []) (byDate[b.date] ??= []).push(b);
 
@@ -85,13 +97,23 @@ export default function Rezervacije() {
                     {b.note && <p className="mt-1 text-xs italic text-ink/40">„{b.note}“</p>}
                   </div>
                   <p className="font-semibold">{formatPrice(b.price)}</p>
-                  {b.status === "PREKLICANO" ? (
-                    <span className="rounded-full bg-red-100 px-3 py-1 text-xs font-medium text-red-700">Preklicano</span>
-                  ) : (
-                    <button onClick={() => cancelBooking(b.id)} className="rounded-full bg-red-50 px-3 py-1 text-xs font-medium text-red-600 hover:bg-red-100">
-                      Prekliči
+                  <div className="flex items-center gap-2">
+                    {b.status === "PREKLICANO" ? (
+                      <span className="rounded-full bg-red-100 px-3 py-1 text-xs font-medium text-red-700">Preklicano</span>
+                    ) : (
+                      <button onClick={() => cancelBooking(b.id)} className="rounded-full bg-red-50 px-3 py-1 text-xs font-medium text-red-600 hover:bg-red-100">
+                        Prekliči
+                      </button>
+                    )}
+                    <button
+                      onClick={() => deleteBooking(b)}
+                      title="Trajno izbriši termin"
+                      aria-label="Trajno izbriši termin"
+                      className="rounded-full px-2 py-1 text-sm text-ink/30 transition hover:bg-red-50 hover:text-red-600"
+                    >
+                      🗑
                     </button>
-                  )}
+                  </div>
                 </div>
               ))}
             </div>
