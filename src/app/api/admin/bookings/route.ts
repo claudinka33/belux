@@ -5,7 +5,7 @@ import { requireAdmin } from "@/lib/admin";
 import { isSlotFree, checkAdminSlot } from "@/lib/availability";
 import { createCalendarEvent, deleteCalendarEvent } from "@/lib/google";
 import { upsertClient } from "@/lib/clients";
-import { sendCancellationEmail, sendRescheduleEmail } from "@/lib/email";
+import { sendBookingEmail, sendCancellationEmail, sendRescheduleEmail } from "@/lib/email";
 
 export const dynamic = "force-dynamic";
 
@@ -65,12 +65,24 @@ export async function POST(req: Request) {
     }
   }
   const endMin = b.startMin + svc.durationMin;
+  const email = String(b.email || "").toLowerCase().trim();
+
   const clientId = await upsertClient({
     firstName: b.firstName || "",
     lastName: b.lastName || "",
-    email: b.email || "",
+    email,
     phone: b.phone || "",
   });
+
+  /**
+   * Če stranka na strani že ima račun, termin povežemo z njim. Termini se
+   * v »Moji termini« sicer najdejo tudi po e-naslovu, tako pa je vez trdna
+   * tudi, če si stranka pozneje spremeni e-naslov.
+   */
+  const account = email
+    ? await db.select().from(tables.users).where(eq(tables.users.email, email)).get()
+    : null;
+
   const row = await db
     .insert(tables.bookings)
     .values({
@@ -80,20 +92,50 @@ export async function POST(req: Request) {
       endMin,
       firstName: b.firstName || "Stranka",
       lastName: b.lastName || "",
-      email: b.email || "",
+      email,
       phone: b.phone || "",
       note: b.note || "",
       clientId,
+      userId: account?.id ?? null,
     })
     .returning()
     .get();
+
   const gcalEventId = await createCalendarEvent({
     date: b.date, startMin: b.startMin, endMin,
     serviceName: svc.name, firstName: row.firstName, lastName: row.lastName,
     email: row.email, phone: row.phone, note: row.note,
   });
   if (gcalEventId) await db.update(tables.bookings).set({ gcalEventId }).where(eq(tables.bookings.id, row.id));
-  return NextResponse.json({ booking: row });
+
+  /**
+   * Potrditev stranki, kadar Anita tako izbere.
+   *
+   * Pri ročnem vnosu ni vedno zaželena — stara rezervacija, termin dogovorjen
+   * po telefonu pred tedni, popravek pomote. Zato o tem odloči kljukica v
+   * obrazcu, ne koda. Sporočilo je enako tistemu ob spletni rezervaciji, skupaj
+   * z gumbom za Google Koledar in povezavo za preklic.
+   */
+  let notified = false;
+  if (b.notify && row.email) {
+    await sendBookingEmail(
+      {
+        id: row.id,
+        date: row.date,
+        startMin: row.startMin,
+        endMin: row.endMin,
+        firstName: row.firstName,
+        email: row.email,
+        cancelToken: row.cancelToken,
+        serviceName: svc.name,
+        price: svc.price,
+      },
+      new URL(req.url).origin
+    );
+    notified = true;
+  }
+
+  return NextResponse.json({ booking: row, notified });
 }
 
 // Preklic, sprememba statusa, označitev plačila, opomba
