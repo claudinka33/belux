@@ -35,7 +35,7 @@ export default function AdminHome() {
         <Stat label="Današnji promet" value={formatPrice(revenue)} icon="💶" />
       </div>
 
-      <div className="mt-8 grid gap-6 lg:grid-cols-2">
+      <div className="mt-8 grid gap-6 lg:grid-cols-2 [&>section]:min-w-0">
         <section>
           <h2 className="mb-3 font-semibold">Danes</h2>
           {bookings === null && <p className="text-sm text-ink/40">Nalagam …</p>}
