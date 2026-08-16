@@ -29,6 +29,13 @@ export async function PUT(req: Request) {
     // shranjevanje pa jih tiho zavrže in vrednosti se vrnejo na privzete.
     "adminEmail", "emailAdminNotify", "emailReminder", "emailThanks",
     "emailFollowUp", "followUpWeeks",
+    // Besedila sporočil (stran Sporočila v dashboardu)
+    "mailBookingSubject", "mailBookingText",
+    "mailReminderSubject", "mailReminderText",
+    "mailThanksSubject", "mailThanksText",
+    "mailFollowUpSubject", "mailFollowUpText",
+    "mailCancelSubject", "mailCancelText",
+    "mailRescheduleSubject", "mailRescheduleText",
   ];
   for (const k of allowed) {
     if (k in body) await setSetting(k, String(body[k]));
